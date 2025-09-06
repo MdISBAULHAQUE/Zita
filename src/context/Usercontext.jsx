@@ -5,13 +5,14 @@ export const datacontext = createContext();
 
 function Usercontext({ children }) {
   const [speaking, setspeaking] = useState(false);
-  const [prompt, setprompt] = useState("Listening...");
+  const [listening, setlistening] = useState(false);
+  const [prompt, setprompt] = useState("Click the button and speak");
   const [response, setresponse] = useState(false);
   const [recognition, setRecognition] = useState(null);
   const [voices, setVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState(null);
 
-  // Load voices when they become available
+  // Load voices and SpeechRecognition setup
   useEffect(() => {
     const speechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -23,36 +24,55 @@ function Usercontext({ children }) {
       console.error("SpeechRecognition is not supported in this browser.");
     }
 
-    // Load voices for speech synthesis
     const loadVoices = () => {
       const availableVoices = window.speechSynthesis.getVoices();
       setVoices(availableVoices);
+
+      // Try to pick a female voice if possible
       const femaleVoice = availableVoices.find((voice) =>
         voice.name.toLowerCase().includes("female")
       );
       if (femaleVoice) {
         setSelectedVoice(femaleVoice);
-      } else {
-        setSelectedVoice(availableVoices[0]); // Fallback to first voice
+      } else if (availableVoices.length > 0) {
+        setSelectedVoice(availableVoices[0]); // fallback to first voice
       }
     };
 
+    // Voices might load asynchronously
     window.speechSynthesis.onvoiceschanged = loadVoices;
-    loadVoices(); // Initial load of voices
+    loadVoices();
   }, []);
 
   const startListening = () => {
     if (recognition) {
+      setlistening(true);
+      setresponse(false);
+      setspeaking(false);
+      setprompt("Listening...");
       recognition.start();
+
       recognition.onresult = (e) => {
         if (e && e.results && e.results.length > 0) {
           const currentIndex = e.resultIndex;
           if (e.results[currentIndex] && e.results[currentIndex][0]) {
             const transcript = e.results[currentIndex][0].transcript;
-            setprompt(transcript);
+            setlistening(false);
+            setprompt(`You asked: "${transcript}"`);
             takeCommand(transcript.toLowerCase());
           }
         }
+      };
+
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+        setlistening(false);
+        setspeaking(false);
+        setprompt("Error recognizing speech. Please try again.");
+      };
+
+      recognition.onend = () => {
+        setlistening(false);
       };
     } else {
       console.error("SpeechRecognition is not initialized.");
@@ -60,7 +80,6 @@ function Usercontext({ children }) {
   };
 
   const takeCommand = (command) => {
-    // Sample command handling
     if (command.includes("open") && command.includes("youtube")) {
       window.open("https://www.youtube.com/", "_blank");
       speak("Opening YouTube");
@@ -91,42 +110,69 @@ function Usercontext({ children }) {
   };
 
   async function airesponse(prompt) {
-    let text = await run(prompt);
-    let newText = text
-      .replace(/google/gi, "Isbaul Haque")
-      .replace(/Google/gi, "Isbaul Haque");
-    setprompt(newText);
-    speak(newText);
-    setresponse(true);
+    try {
+      let text = await run(prompt);
+      let newText = text
+        .replace(/google/gi, "Isbaul Haque")
+        .replace(/Google/gi, "Isbaul Haque");
+      setprompt(newText);
+      speak(newText);
+      setresponse(true);
+    } catch (error) {
+      console.error("Error in AI response:", error);
+      setprompt("Sorry, something went wrong with AI response.");
+      speak("Sorry, something went wrong with AI response.");
+    }
   }
 
   const speak = (text) => {
+    if (!window.speechSynthesis) {
+      console.error("Speech Synthesis not supported in this browser.");
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
     const textToSpeech = new SpeechSynthesisUtterance(text);
+
     textToSpeech.volume = 1;
     textToSpeech.rate = 1;
     textToSpeech.pitch = 1;
-    textToSpeech.lang = "en-US"; // You can change the language to whatever is needed
+    textToSpeech.lang = "en-US";
 
-    // Set the voice to the selected voice
     if (selectedVoice) {
       textToSpeech.voice = selectedVoice;
+    } else {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        textToSpeech.voice = voices[0];
+        console.log("Using fallback voice:", voices[0].name);
+      }
     }
 
-    // Log speech output for debugging
-    console.log("Speaking:", text);
-
-    // Add onend event to reset speaking state after speech ends
-    textToSpeech.onend = () => {
-      setspeaking(false); // Reset speaking state
+    textToSpeech.onstart = () => {
+      console.log("Speech started");
+      setspeaking(true);
     };
 
-    // Speak the text
+    textToSpeech.onend = () => {
+      console.log("Speech ended");
+      setspeaking(false);
+    };
+
+    textToSpeech.onerror = (event) => {
+      console.error("Speech synthesis error:", event.error);
+      setspeaking(false);
+    };
+
+    console.log("Speaking text:", text);
     window.speechSynthesis.speak(textToSpeech);
   };
 
   const value = {
     recognition,
     speaking,
+    listening,
     setspeaking,
     prompt,
     setprompt,

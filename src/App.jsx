@@ -7,42 +7,28 @@ import speakGif from "../Picture/speak.gif";
 import aiGif from "../Picture/aivoice.gif";
 
 function App() {
-  const {
-    recognition,
-    speaking,
-    setspeaking,
-    prompt,
-    response,
-    setresponse,
-    setprompt,
-    startListening, // Use startListening from context
-  } = useContext(datacontext);
+  const { speaking, listening, prompt, response, startListening } = useContext(datacontext);
 
   return (
     <div className="main">
-      <img src={va} alt="" id="zita" />
+      <img src={va} alt="AI Assistant" id="zita" />
       <span>I'M Zita, Your Advanced Virtual Assistant</span>
 
-      {!speaking ? (
-        <button
-          onClick={() => {
-            setprompt("Listening...");
-            setspeaking(true);
-            setresponse(false);
-            startListening(); // Start listening when button is clicked
-          }}
-        >
-          Click here <CiMicrophoneOn />
+      {!speaking && !response && !listening ? (
+        <button onClick={startListening}>
+          Click and Speak <CiMicrophoneOn size="1.2em" />
         </button>
       ) : (
         <div className="response">
-          {!response ? (
-            <img src={speakGif} alt="" id="speak" />
-          ) : (
-            <img src={aiGif} alt="" id="aigif" />
-          )}
-
+          {listening ? (
+            <img src={speakGif} alt="Listening..." id="speak" />
+          ) : speaking ? (
+            <img src={aiGif} alt="Speaking..." id="aigif" />
+          ) : null}
           <p>{prompt}</p>
+          <button onClick={startListening}>
+            Ask Again <CiMicrophoneOn size="1.2em" />
+          </button>
         </div>
       )}
     </div>

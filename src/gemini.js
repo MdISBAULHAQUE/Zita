@@ -1,75 +1,49 @@
-let apiKey = "AIzaSyBZmnMzK88M039TNokjB1F9uJ2tyKzdrQg";
-
+// gemini.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// Make sure your new, secure API key is in your .env file
+const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+if (!apiKey) {
+  throw new Error("VITE_GOOGLE_API_KEY is not set in the environment variables.");
+}
+
 const genAI = new GoogleGenerativeAI(apiKey);
+
+// FIX: Corrected the model name here
 const model = genAI.getGenerativeModel({
-  model: "gemini-2.0-flash",
+  model: "gemini-1.5-flash", 
 });
 
 const generationConfig = {
   temperature: 1,
   topP: 0.95,
-  topK: 40,
-  maxOutputTokens: 50,
-  responseModalities: [],
-  responseMimeType: "text/plain",
+  topK: 64,
+  maxOutputTokens: 8192, // Increased for longer responses
 };
 
-// Helper function to download files (browser-friendly)
-function downloadFile(filename, data, mimeType) {
-  const blob = new Blob([data], { type: mimeType });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  window.URL.revokeObjectURL(url);
-}
-
 async function run(prompt) {
-  const chatSession = model.startChat({
-    generationConfig,
-    history: [],
-  });
+  try {
+    console.log("Sending prompt to Gemini:", prompt);
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    console.log("Gemini response:", text);
+    return text || "I couldn't generate a response for that.";
 
-  const result = await chatSession.sendMessage(prompt);
-
-  const candidates = result.response.candidates;
-
-  // Loop through the candidates and parts
-  for (
-    let candidateIndex = 0;
-    candidateIndex < candidates.length;
-    candidateIndex++
-  ) {
-    for (
-      let partIndex = 0;
-      partIndex < candidates[candidateIndex].content.parts.length;
-      partIndex++
-    ) {
-      const part = candidates[candidateIndex].content.parts[partIndex];
-
-      if (part.inlineData) {
-        try {
-          const filename = `output_${candidateIndex}_${partIndex}`;
-
-          const byteArray = new Uint8Array(
-            atob(part.inlineData.data)
-              .split("")
-              .map((char) => char.charCodeAt(0))
-          );
-
-          downloadFile(filename, byteArray, part.inlineData.mimeType);
-          console.log(`Output ready to be downloaded: ${filename}`);
-        } catch (err) {
-          console.error("Error processing inline data:", err);
-        }
-      }
+  } catch (err) {
+    console.error("Gemini API Error:", err);
+    
+    if (err.message?.includes('API_KEY')) {
+      return "Please check your API key configuration.";
     }
+    if (err.message?.includes('quota')) {
+      return "API quota exceeded. Please try again later.";
+    }
+    
+    return "I'm having trouble connecting right now. Please try again.";
   }
-
-  return result.response.text();
 }
 
 export default run;
