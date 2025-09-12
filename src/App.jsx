@@ -4,10 +4,11 @@ import va from "../Picture/ai.png";
 import { CiMicrophoneOn } from "react-icons/ci";
 import { datacontext } from "./context/Usercontext";
 import speakGif from "../Picture/speak.gif";
-import aiGif from "../Picture/aivoice.gif";
+import aiGif from "../Picture/aiVoice.gif";
 
 function App() {
-  const { speaking, listening, prompt, response, startListening } = useContext(datacontext);
+  const { speaking, listening, prompt, response, startListening } =
+    useContext(datacontext);
 
   return (
     <div className="main">
